@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: 'Google Sans', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+    
+    .container {
+      max-width: 100%;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .header h1 {
+      color: #1a73e8;
+      font-size: 18px;
+      margin: 0 0 5px 0;
+    }
+    
+    .header p {
+      color: #5f6368;
+      font-size: 12px;
+      margin: 0;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #202124;
+      font-size: 14px;
+    }
+    
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 14px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+    
+    .button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      width: 100%;
+      transition: background-color 0.2s;
+    }
+    
+    .button:hover {
+      background-color: #1557b0;
+    }
+    
+    .button:disabled {
+      background-color: #dadce0;
+      cursor: not-allowed;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 10px 0;
+    }
+    
+    .spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #1a73e8;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .result {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    
+    .result.success {
+      background-color: #e6f4ea;
+      border: 1px solid #34a853;
+      color: #137333;
+    }
+    
+    .result.error {
+      background-color: #fce8e6;
+      border: 1px solid #ea4335;
+      color: #c5221f;
+    }
+    
+    .result-data {
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    
+    .result-data table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .result-data td {
+      padding: 4px 8px;
+      border-bottom: 1px solid #dadce0;
+    }
+    
+    .result-data td:first-child {
+      font-weight: 500;
+      width: 30%;
+    }
+    
+    .setup-button {
+      background-color: #34a853;
+      margin-top: 10px;
+    }
+    
+    .setup-button:hover {
+      background-color: #2d8e47;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Invoice Extractor AI</h1>
+      <p>Extract structured data from invoice text using AI</p>
+    </div>
+    
+    <form id="invoiceForm">
+      <div class="form-group">
+        <label for="invoiceText">Invoice Text:</label>
+        <textarea 
+          id="invoiceText" 
+          name="invoiceText" 
+          placeholder="Paste your invoice text here..."
+          required
+        ></textarea>
+      </div>
+      
+      <button type="submit" class="button" id="analyzeBtn">
+        Analyze Invoice
+      </button>
+      
+      <button type="button" class="button setup-button" id="setupBtn" onclick="setupSheetHeaders()">
+        Setup Sheet Headers
+      </button>
+    </form>
+    
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      Analyzing invoice...
+    </div>
+    
+    <div class="result" id="result"></div>
+  </div>
+  
+  <script>
+    // Handle form submission
+    document.getElementById('invoiceForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      analyzeInvoice();
+    });
+    
+    // Analyze invoice function
+    function analyzeInvoice() {
+      const invoiceText = document.getElementById('invoiceText').value.trim();
+      const analyzeBtn = document.getElementById('analyzeBtn');
+      const loading = document.getElementById('loading');
+      const result = document.getElementById('result');
+      
+      if (!invoiceText) {
+        showResult('Please enter invoice text to analyze.', 'error');
+        return;
+      }
+      
+      // Show loading state
+      analyzeBtn.disabled = true;
+      loading.style.display = 'block';
+      result.style.display = 'none';
+      
+      // Call the Apps Script function
+      google.script.run
+        .withSuccessHandler(function(response) {
+          loading.style.display = 'none';
+          analyzeBtn.disabled = false;
+          
+          if (response.success) {
+            showResult('Invoice analyzed successfully!', 'success', response.data);
+            // Clear the form
+            document.getElementById('invoiceText').value = '';
+          } else {
+            showResult('Error: ' + response.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          loading.style.display = 'none';
+          analyzeBtn.disabled = false;
+          showResult('Error: ' + error.message, 'error');
+        })
+        .analyzeInvoice(invoiceText);
+    }
+    
+    // Setup sheet headers function
+    function setupSheetHeaders() {
+      const setupBtn = document.getElementById('setupBtn');
+      const result = document.getElementById('result');
+      
+      setupBtn.disabled = true;
+      setupBtn.textContent = 'Setting up...';
+      
+      google.script.run
+        .withSuccessHandler(function(response) {
+          setupBtn.disabled = false;
+          setupBtn.textContent = 'Setup Sheet Headers';
+          
+          if (response.success) {
+            showResult('Sheet headers set up successfully!', 'success');
+          } else {
+            showResult('Error: ' + response.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          setupBtn.disabled = false;
+          setupBtn.textContent = 'Setup Sheet Headers';
+          showResult('Error: ' + error.message, 'error');
+        })
+        .setupSheetHeaders();
+    }
+    
+    // Show result function
+    function showResult(message, type, data = null) {
+      const result = document.getElementById('result');
+      result.className = 'result ' + type;
+      result.style.display = 'block';
+      
+      let html = '<strong>' + message + '</strong>';
+      
+      if (data && type === 'success') {
+        html += '<div class="result-data">';
+        html += '<table>';
+        html += '<tr><td>Invoice ID:</td><td>' + (data.invoice_id || 'N/A') + '</td></tr>';
+        html += '<tr><td>Vendor:</td><td>' + (data.vendor || 'N/A') + '</td></tr>';
+        html += '<tr><td>Total:</td><td>' + (data.total || 'N/A') + '</td></tr>';
+        html += '<tr><td>Date:</td><td>' + (data.date || 'N/A') + '</td></tr>';
+        html += '</table>';
+        html += '</div>';
+        
+        // Insert data into sheet
+        google.script.run
+          .withSuccessHandler(function(insertResponse) {
+            if (insertResponse.success) {
+              html += '<div style="margin-top: 10px; font-size: 12px; color: #34a853;">' + 
+                     insertResponse.message + '</div>';
+              result.innerHTML = html;
+            } else {
+              html += '<div style="margin-top: 10px; font-size: 12px; color: #ea4335;">' +
+                     'Warning: ' + insertResponse.error + '</div>';
+              result.innerHTML = html;
+            }
+          })
+          .withFailureHandler(function(error) {
+            html += '<div style="margin-top: 10px; font-size: 12px; color: #ea4335;">' +
+                   'Warning: Failed to insert data into sheet</div>';
+            result.innerHTML = html;
+          })
+          .insertInvoiceData(data);
+      } else {
+        result.innerHTML = html;
+      }
+    }
+  </script>
+</body>
+</html> 
